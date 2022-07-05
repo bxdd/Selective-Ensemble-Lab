@@ -1,28 +1,22 @@
 import numpy as np
 
-from sklearn.datasets import load_wine
+from sklearn.datasets import load_digits
 
-from selab.forest.tree import DecisionTreeClassifier
-from selab.forest import RandomForestClassifier
-from selab.forest.binner import Binner
+from selab.ensemble.forest.tree import DecisionTreeClassifier
+from selab.ensemble.forest import RandomForestClassifier
 
-wine = load_wine()
+breast = load_digits()
+
 from sklearn.model_selection import train_test_split
 
+Xtrain, Xtest, Ytrain, Ytest = train_test_split(breast.data, breast.target, test_size=0.2)
 
-binner_ = Binner(
-    n_bins=255,
-    bin_subsample=200000,
-    bin_type="percentile",
-)
-
-# Bin the training data
-
-Xtrain, Xtest, Ytrain, Ytest = train_test_split(wine.data, wine.target, test_size=0.3)
-Xtrain = binner_.bin_data(Xtrain, is_training_data=True)
-Xtest = binner_.bin_data(Xtest, is_training_data=False)
-rfc = RandomForestClassifier(n_estimators=200, random_state=0)
-# tfc = DecisionTreeClassifier()
+rfc = RandomForestClassifier(n_estimators=200, random_state=997)
+tfc = DecisionTreeClassifier()
 rfc = rfc.fit(Xtrain, Ytrain)
-score_r = rfc.score(Xtest, Ytest)
-print("Random Forest:{}".format(score_r))
+score_r1 = rfc.score(Xtest, Ytest)
+
+tfc = tfc.fit(Xtrain, Ytrain)
+score_r2 = tfc.score(Xtest, Ytest)
+print("Random Forest:{}".format(score_r1))
+print("Decision Tree:{}".format(score_r2))

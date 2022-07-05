@@ -2,9 +2,19 @@
 # cython: boundscheck=False
 # cython: wraparound=False
 
-# This class is modified from:
-#   https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/tree/_criterion.pyx
-
+# Authors: Gilles Louppe <g.louppe@gmail.com>
+#          Peter Prettenhofer <peter.prettenhofer@gmail.com>
+#          Brian Holt <bdholt1@gmail.com>
+#          Noel Dawe <noel@dawe.me>
+#          Satrajit Gosh <satrajit.ghosh@gmail.com>
+#          Lars Buitinck
+#          Arnaud Joly <arnaud.v.joly@gmail.com>
+#          Joel Nothman <joel.nothman@gmail.com>
+#          Fares Hedayati <fares.hedayati@gmail.com>
+#          Jacob Schreiber <jmschreiber91@gmail.com>
+#          Nelson Liu <nelson@nelsonliu.me>
+#
+# License: BSD 3 clause
 
 from libc.stdlib cimport calloc
 from libc.stdlib cimport free
@@ -190,9 +200,9 @@ cdef class Criterion:
         self.children_impurity(&impurity_left, &impurity_right)
 
         return ((self.weighted_n_node_samples / self.weighted_n_samples) *
-                (impurity - (self.weighted_n_right /
+                (impurity - (self.weighted_n_right / 
                              self.weighted_n_node_samples * impurity_right)
-                          - (self.weighted_n_left /
+                          - (self.weighted_n_left / 
                              self.weighted_n_node_samples * impurity_left)))
 
 
@@ -719,7 +729,7 @@ cdef class RegressionCriterion(Criterion):
         self.sum_left = <double*> calloc(n_outputs, sizeof(double))
         self.sum_right = <double*> calloc(n_outputs, sizeof(double))
 
-        if (self.sum_total == NULL or
+        if (self.sum_total == NULL or 
                 self.sum_left == NULL or
                 self.sum_right == NULL):
             raise MemoryError()
@@ -1241,7 +1251,7 @@ cdef class MAE(RegressionCriterion):
                     w = sample_weight[i]
 
                 impurity_left += fabs(self.y[i, k] - median) * w
-        p_impurity_left[0] = impurity_left / (self.weighted_n_left *
+        p_impurity_left[0] = impurity_left / (self.weighted_n_left * 
                                               self.n_outputs)
 
         for k in range(self.n_outputs):
@@ -1253,7 +1263,7 @@ cdef class MAE(RegressionCriterion):
                     w = sample_weight[i]
 
                 impurity_right += fabs(self.y[i, k] - median) * w
-        p_impurity_right[0] = impurity_right / (self.weighted_n_right *
+        p_impurity_right[0] = impurity_right / (self.weighted_n_right * 
                                                 self.n_outputs)
 
 

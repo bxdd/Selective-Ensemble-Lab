@@ -1,11 +1,3 @@
-# cython: cdivision=True
-# cython: boundscheck=False
-# cython: wraparound=False
-
-# This header file is modified from:
-#   https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/tree/_utils.pyx
-
-
 from libc.stdlib cimport free
 from libc.stdlib cimport malloc
 from libc.stdlib cimport realloc
@@ -14,6 +6,7 @@ from libc.math cimport log as ln
 import numpy as np
 cimport numpy as np
 np.import_array()
+
 
 # =============================================================================
 # Helper functions
@@ -47,6 +40,12 @@ def _realloc_test():
         assert False
 
 
+cdef inline np.ndarray sizet_ptr_to_ndarray(SIZE_t* data, SIZE_t size):
+    """Return copied data as 1D numpy array of intp's."""
+    cdef np.npy_intp shape[1]
+    shape[0] = <np.npy_intp> size
+    return np.PyArray_SimpleNewFromData(1, shape, np.NPY_INTP, data).copy()
+
 # rand_r replacement using a 32bit XorShift generator
 # From https://github.com/Yu-Group/iterative-Random-Forest
 cdef inline UINT32_t our_rand_r(UINT32_t* seed) nogil:
@@ -55,14 +54,6 @@ cdef inline UINT32_t our_rand_r(UINT32_t* seed) nogil:
     seed[0] ^= <UINT32_t>(seed[0] << 5)
 
     return seed[0] % (<UINT32_t>RAND_R_MAX + 1)
-
-
-cdef inline np.ndarray sizet_ptr_to_ndarray(SIZE_t* data, SIZE_t size):
-    """Return copied data as 1D numpy array of intp's."""
-    cdef np.npy_intp shape[1]
-    shape[0] = <np.npy_intp> size
-    return np.PyArray_SimpleNewFromData(1, shape, np.NPY_INTP, data).copy()
-
 
 cdef inline SIZE_t rand_int(SIZE_t low, SIZE_t high,
                             UINT32_t* random_state) nogil:

@@ -2,9 +2,18 @@
 # cython: boundscheck=False
 # cython: wraparound=False
 
-# This class is modified from:
-#   https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/tree/_splitter.pyx
-
+# Authors: Gilles Louppe <g.louppe@gmail.com>
+#          Peter Prettenhofer <peter.prettenhofer@gmail.com>
+#          Brian Holt <bdholt1@gmail.com>
+#          Noel Dawe <noel@dawe.me>
+#          Satrajit Gosh <satrajit.ghosh@gmail.com>
+#          Lars Buitinck
+#          Arnaud Joly <arnaud.v.joly@gmail.com>
+#          Joel Nothman <joel.nothman@gmail.com>
+#          Fares Hedayati <fares.hedayati@gmail.com>
+#          Jacob Schreiber <jmschreiber91@gmail.com>
+#
+# License: BSD 3 clause
 
 from ._criterion cimport Criterion
 
@@ -27,12 +36,19 @@ from ._utils cimport safe_realloc
 
 cdef double INFINITY = np.inf
 
+# Mitigate precision differences between 32 bit and 64 bit
+cdef DTYPE_t FEATURE_THRESHOLD = 1e-7
+
+# Constant to switch between algorithm non zero value extract algorithm
+# in SparseSplitter
+cdef DTYPE_t EXTRACT_NNZ_SWITCH = 0.1
+
 cdef inline void _init_split(SplitRecord* self, SIZE_t start_pos) nogil:
     self.impurity_left = INFINITY
     self.impurity_right = INFINITY
     self.pos = start_pos
     self.feature = 0
-    self.threshold = 0
+    self.threshold = 0.
     self.improvement = -INFINITY
 
 cdef class Splitter:
@@ -225,7 +241,7 @@ cdef class BaseDenseSplitter(Splitter):
     cdef const DTYPE_t[:, :] X
 
     cdef np.ndarray X_idx_sorted
-    cdef SIZE_t* X_idx_sorted_ptr
+    cdef INT32_t* X_idx_sorted_ptr
     cdef SIZE_t X_idx_sorted_stride
     cdef SIZE_t n_total_samples
     cdef SIZE_t* sample_mask
@@ -287,7 +303,7 @@ cdef class BestSplitter(BaseDenseSplitter):
         cdef double min_weight_leaf = self.min_weight_leaf
         cdef UINT32_t* random_state = &self.rand_r_state
 
-        cdef SIZE_t* X_idx_sorted = self.X_idx_sorted_ptr
+        cdef INT32_t* X_idx_sorted = self.X_idx_sorted_ptr
         cdef SIZE_t* sample_mask = self.sample_mask
 
         cdef SplitRecord best, current
@@ -368,7 +384,7 @@ cdef class BestSplitter(BaseDenseSplitter):
 
                 sort(Xf + start, samples + start, end - start)
 
-                if Xf[end - 1] <= Xf[start]:
+                if Xf[end - 1] <= Xf[start] + FEATURE_THRESHOLD:
                     features[f_j], features[n_total_constants] = features[n_total_constants], features[f_j]
 
                     n_found_constants += 1
@@ -384,7 +400,7 @@ cdef class BestSplitter(BaseDenseSplitter):
 
                     while p < end:
                         while (p + 1 < end and
-                               Xf[p + 1] <= Xf[p]):
+                               Xf[p + 1] <= Xf[p] + FEATURE_THRESHOLD):
                             p += 1
 
                         # (p + 1 >= end) or (X[samples[p + 1], current.feature] >
@@ -413,7 +429,7 @@ cdef class BestSplitter(BaseDenseSplitter):
                             if current_proxy_improvement > best_proxy_improvement:
                                 best_proxy_improvement = current_proxy_improvement
                                 # sum of halves is used to avoid infinite value
-                                current.threshold = <DTYPE_t>(Xf[p - 1] / 2.0 + Xf[p] / 2.0)
+                                current.threshold = Xf[p - 1] / 2.0 + Xf[p] / 2.0
 
                                 if ((current.threshold == Xf[p]) or
                                     (current.threshold == INFINITY) or
@@ -683,7 +699,7 @@ cdef class RandomSplitter(BaseDenseSplitter):
                     elif current_feature_value > max_feature_value:
                         max_feature_value = current_feature_value
 
-                if max_feature_value <= min_feature_value:
+                if max_feature_value <= min_feature_value + FEATURE_THRESHOLD:
                     features[f_j], features[n_total_constants] = features[n_total_constants], current.feature
 
                     n_found_constants += 1
@@ -694,9 +710,9 @@ cdef class RandomSplitter(BaseDenseSplitter):
                     features[f_i], features[f_j] = features[f_j], features[f_i]
 
                     # Draw a random threshold
-                    current.threshold = <DTYPE_t>(rand_uniform(min_feature_value,
-                                                              max_feature_value,
-                                                              random_state))
+                    current.threshold = rand_uniform(min_feature_value,
+                                                     max_feature_value,
+                                                     random_state)
 
                     if current.threshold == max_feature_value:
                         current.threshold = min_feature_value
@@ -772,8 +788,8 @@ cdef class RandomSplitter(BaseDenseSplitter):
 cdef class BaseSparseSplitter(Splitter):
     # The sparse splitter works only with csc sparse matrix format
     cdef DTYPE_t* X_data
-    cdef SIZE_t* X_indices
-    cdef SIZE_t* X_indptr
+    cdef INT32_t* X_indices
+    cdef INT32_t* X_indptr
 
     cdef SIZE_t n_total_samples
 
@@ -820,13 +836,13 @@ cdef class BaseSparseSplitter(Splitter):
 
         # Initialize X
         cdef np.ndarray[dtype=DTYPE_t, ndim=1] data = X.data
-        cdef np.ndarray[dtype=SIZE_t, ndim=1] indices = X.indices
-        cdef np.ndarray[dtype=SIZE_t, ndim=1] indptr = X.indptr
+        cdef np.ndarray[dtype=INT32_t, ndim=1] indices = X.indices
+        cdef np.ndarray[dtype=INT32_t, ndim=1] indptr = X.indptr
         cdef SIZE_t n_total_samples = X.shape[0]
 
         self.X_data = <DTYPE_t*> data.data
-        self.X_indices = <SIZE_t*> indices.data
-        self.X_indptr = <SIZE_t*> indptr.data
+        self.X_indices = <INT32_t*> indices.data
+        self.X_indptr = <INT32_t*> indptr.data
         self.n_total_samples = n_total_samples
 
         # Initialize auxiliary array used to perform split
@@ -919,7 +935,7 @@ cdef class BaseSparseSplitter(Splitter):
         # search and O(n_indices) is the running time of index_to_samples
         # approach.
         if ((1 - is_samples_sorted[0]) * n_samples * log(n_samples) +
-                n_samples * log(n_indices) < 0.1 * n_indices):
+                n_samples * log(n_indices) < EXTRACT_NNZ_SWITCH * n_indices):
             extract_nnz_binary_search(self.X_indices, self.X_data,
                                       indptr_start, indptr_end,
                                       self.samples, self.start, self.end,
@@ -944,15 +960,15 @@ cdef int compare_SIZE_t(const void* a, const void* b) nogil:
     return <int>((<SIZE_t*>a)[0] - (<SIZE_t*>b)[0])
 
 
-cdef inline void binary_search(SIZE_t* sorted_array,
-                               SIZE_t start, SIZE_t end,
+cdef inline void binary_search(INT32_t* sorted_array,
+                               INT32_t start, INT32_t end,
                                SIZE_t value, SIZE_t* index,
-                               SIZE_t* new_start) nogil:
+                               INT32_t* new_start) nogil:
     """Return the index of value in the sorted array.
 
     If not found, return -1. new_start is the last pivot + 1
     """
-    cdef SIZE_t pivot
+    cdef INT32_t pivot
     index[0] = -1
     while start < end:
         pivot = start + (end - start) / 2
@@ -969,10 +985,10 @@ cdef inline void binary_search(SIZE_t* sorted_array,
     new_start[0] = start
 
 
-cdef inline void extract_nnz_index_to_samples(SIZE_t* X_indices,
+cdef inline void extract_nnz_index_to_samples(INT32_t* X_indices,
                                               DTYPE_t* X_data,
-                                              SIZE_t indptr_start,
-                                              SIZE_t indptr_end,
+                                              INT32_t indptr_start,
+                                              INT32_t indptr_end,
                                               SIZE_t* samples,
                                               SIZE_t start,
                                               SIZE_t end,
@@ -984,7 +1000,7 @@ cdef inline void extract_nnz_index_to_samples(SIZE_t* X_indices,
 
     Complexity is O(indptr_end - indptr_start).
     """
-    cdef SIZE_t k
+    cdef INT32_t k
     cdef SIZE_t index
     cdef SIZE_t end_negative_ = start
     cdef SIZE_t start_positive_ = end
@@ -1009,10 +1025,10 @@ cdef inline void extract_nnz_index_to_samples(SIZE_t* X_indices,
     start_positive[0] = start_positive_
 
 
-cdef inline void extract_nnz_binary_search(SIZE_t* X_indices,
+cdef inline void extract_nnz_binary_search(INT32_t* X_indices,
                                            DTYPE_t* X_data,
-                                           SIZE_t indptr_start,
-                                           SIZE_t indptr_end,
+                                           INT32_t indptr_start,
+                                           INT32_t indptr_end,
                                            SIZE_t* samples,
                                            SIZE_t start,
                                            SIZE_t end,
@@ -1111,8 +1127,8 @@ cdef class BestSparseSplitter(BaseSparseSplitter):
         cdef SIZE_t start = self.start
         cdef SIZE_t end = self.end
 
-        cdef SIZE_t* X_indices = self.X_indices
-        cdef SIZE_t* X_indptr = self.X_indptr
+        cdef INT32_t* X_indices = self.X_indices
+        cdef INT32_t* X_indptr = self.X_indptr
         cdef DTYPE_t* X_data = self.X_data
 
         cdef SIZE_t* features = self.features
@@ -1216,13 +1232,13 @@ cdef class BestSparseSplitter(BaseSparseSplitter):
                 # Add one or two zeros in Xf, if there is any
                 if end_negative < start_positive:
                     start_positive -= 1
-                    Xf[start_positive] = 0
+                    Xf[start_positive] = 0.
 
                     if end_negative != start_positive:
-                        Xf[end_negative] = 0
+                        Xf[end_negative] = 0.
                         end_negative += 1
 
-                if Xf[end - 1] <= Xf[start]:
+                if Xf[end - 1] <= Xf[start] + FEATURE_THRESHOLD:
                     features[f_j], features[n_total_constants] = features[n_total_constants], features[f_j]
 
                     n_found_constants += 1
@@ -1243,7 +1259,7 @@ cdef class BestSparseSplitter(BaseSparseSplitter):
                             p_next = start_positive
 
                         while (p_next < end and
-                               Xf[p_next] <= Xf[p]):
+                               Xf[p_next] <= Xf[p] + FEATURE_THRESHOLD):
                             p = p_next
                             if p + 1 != end_negative:
                                 p_next = p + 1
@@ -1279,7 +1295,7 @@ cdef class BestSparseSplitter(BaseSparseSplitter):
                             if current_proxy_improvement > best_proxy_improvement:
                                 best_proxy_improvement = current_proxy_improvement
                                 # sum of halves used to avoid infinite values
-                                current.threshold = <DTYPE_t>(Xf[p - 1] / 2.0 + Xf[p] / 2.0)
+                                current.threshold = Xf[p_prev] / 2.0 + Xf[p] / 2.0
 
                                 if ((current.threshold == Xf[p]) or
                                     (current.threshold == INFINITY) or
@@ -1340,8 +1356,8 @@ cdef class RandomSparseSplitter(BaseSparseSplitter):
         cdef SIZE_t start = self.start
         cdef SIZE_t end = self.end
 
-        cdef SIZE_t* X_indices = self.X_indices
-        cdef SIZE_t* X_indptr = self.X_indptr
+        cdef INT32_t* X_indices = self.X_indices
+        cdef INT32_t* X_indptr = self.X_indptr
         cdef DTYPE_t* X_data = self.X_data
 
         cdef SIZE_t* features = self.features
@@ -1438,10 +1454,10 @@ cdef class RandomSparseSplitter(BaseSparseSplitter):
                 # Add one or two zeros in Xf, if there is any
                 if end_negative < start_positive:
                     start_positive -= 1
-                    Xf[start_positive] = 0
+                    Xf[start_positive] = 0.
 
                     if end_negative != start_positive:
-                        Xf[end_negative] = 0
+                        Xf[end_negative] = 0.
                         end_negative += 1
 
                 # Find min, max in Xf[start:end_negative]
@@ -1465,7 +1481,7 @@ cdef class RandomSparseSplitter(BaseSparseSplitter):
                     elif current_feature_value > max_feature_value:
                         max_feature_value = current_feature_value
 
-                if max_feature_value <= min_feature_value:
+                if max_feature_value <= min_feature_value + FEATURE_THRESHOLD:
                     features[f_j] = features[n_total_constants]
                     features[n_total_constants] = current.feature
 
@@ -1477,9 +1493,9 @@ cdef class RandomSparseSplitter(BaseSparseSplitter):
                     features[f_i], features[f_j] = features[f_j], features[f_i]
 
                     # Draw a random threshold
-                    current.threshold = <DTYPE_t>(rand_uniform(min_feature_value,
-                                                              max_feature_value,
-                                                              random_state))
+                    current.threshold = rand_uniform(min_feature_value,
+                                                     max_feature_value,
+                                                     random_state)
 
                     if current.threshold == max_feature_value:
                         current.threshold = min_feature_value
@@ -1489,7 +1505,7 @@ cdef class RandomSparseSplitter(BaseSparseSplitter):
                                                   end_negative,
                                                   start_positive,
                                                   start_positive +
-                                                  (Xf[start_positive] == 0))
+                                                  (Xf[start_positive] == 0.))
 
                     # Reject if min_samples_leaf is not guaranteed
                     if (((current.pos - start) < min_samples_leaf) or
