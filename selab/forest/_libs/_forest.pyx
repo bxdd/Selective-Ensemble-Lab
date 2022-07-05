@@ -13,9 +13,9 @@ np.import_array()
 from numpy import uint8 as DTYPE
 from numpy import float64 as DOUBLE
 
-from .tree._tree cimport DTYPE_t
-from .tree._tree cimport DOUBLE_t
-from .tree._tree cimport SIZE_t
+from ..tree._libs._tree cimport DTYPE_t
+from ..tree._libs._tree cimport DOUBLE_t
+from ..tree._libs._tree cimport SIZE_t
 
 cdef SIZE_t _TREE_LEAF = -1
 

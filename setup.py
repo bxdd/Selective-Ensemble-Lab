@@ -23,7 +23,7 @@ except ImportError:
     _CYTHON_INSTALLED = False
 
 if not _CYTHON_INSTALLED:
-    print("Required Cython version >= 0.28 is not detected!")
+    print("Required Cython version >= 0.24 is not detected!")
     print('Please run "pip install --upgrade cython" first.')
     exit(-1)
 
@@ -33,7 +33,7 @@ REQUIRED = [
     "numpy>=1.16.0,<1.20.0",
     "scipy>=0.19.1",
     "joblib>=0.11",
-    "scikit-learn==0.24",
+    "scikit-learn>=0.23,<0.24",
 ]
 
 
@@ -48,50 +48,43 @@ if os.name == "posix":
 
 extensions = [
     Extension(
-        "selab.seforest._forest",
-        ["selab/seforest/_forest.pyx"],
+        "selab.forest._libs._forest",
+        ["selab/forest/_libs/_forest.pyx"],
         include_dirs=[numpy.get_include()],
         libraries=libraries,
         extra_compile_args=["-O3"],
     ),
     Extension(
-        "selab.seforest._cutils",
-        ["selab/seforest/_cutils.pyx"],
+        "selab.forest._libs._cutils",
+        ["selab/forest/_libs/_cutils.pyx"],
         include_dirs=[numpy.get_include()],
         libraries=libraries,
         extra_compile_args=["-O3"],
     ),
     Extension(
-        "selab.seforest.tree._tree",
-        ["selab/seforest/tree/_tree.pyx"],
+        "selab.forest.tree._libs._tree",
+        ["selab/forest/tree/_libs/_tree.pyx"],
         include_dirs=[numpy.get_include()],
         libraries=libraries,
         extra_compile_args=["-O3"],
     ),
     Extension(
-        "selab.seforest.tree._splitter",
-        ["selab/seforest/tree/_splitter.pyx"],
+        "selab.forest.tree._libs._splitter",
+        ["selab/forest/tree/_libs/_splitter.pyx"],
         include_dirs=[numpy.get_include()],
         libraries=libraries,
         extra_compile_args=["-O3"],
     ),
     Extension(
-        "selab.seforest.tree._criterion",
-        ["selab/seforest/tree/_criterion.pyx"],
+        "selab.forest.tree._libs._criterion",
+        ["selab/forest/tree/_libs/_criterion.pyx"],
         include_dirs=[numpy.get_include()],
         libraries=libraries,
         extra_compile_args=["-O3"],
     ),
     Extension(
-        "selab.seforest.tree._criterion",
-        ["selab/seforest/tree/_criterion.pyx"],
-        include_dirs=[numpy.get_include()],
-        libraries=libraries,
-        extra_compile_args=["-O3"],
-    ),
-    Extension(
-        "selab.seforest.tree._utils",
-        ["selab/seforest/tree/_utils.pyx"],
+        "selab.forest.tree._libs._utils",
+        ["selab/forest/tree/_libs/_utils.pyx"],
         include_dirs=[numpy.get_include()],
         libraries=libraries,
         extra_compile_args=["-O3"],

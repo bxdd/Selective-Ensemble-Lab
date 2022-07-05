@@ -34,11 +34,11 @@ from sklearn.utils.validation import _check_sample_weight
 from sklearn.utils.validation import check_is_fitted
 from sklearn.utils.validation import _deprecate_positional_args
 
-from ._criterion import Criterion
-from ._splitter import Splitter
-from ._tree import DepthFirstTreeBuilder
-from ._tree import Tree
-from . import _tree, _splitter, _criterion
+from ._libs._criterion import Criterion
+from ._libs._splitter import Splitter
+from ._libs._tree import DepthFirstTreeBuilder
+from ._libs._tree import Tree
+from ._libs import _tree, _splitter, _criterion
 
 
 # =============================================================================
@@ -275,14 +275,6 @@ class BaseDecisionTree(MultiOutputMixin, BaseEstimator, metaclass=ABCMeta):
 
         min_impurity_split = self.min_impurity_split
         if min_impurity_split is not None:
-            warnings.warn(
-                "The min_impurity_split parameter is deprecated. "
-                "Its default value has changed from 1e-7 to 0 in "
-                "version 0.23, and it will be removed in 0.25. "
-                "Use the min_impurity_decrease parameter instead.",
-                FutureWarning,
-            )
-
             if min_impurity_split < 0.0:
                 raise ValueError("min_impurity_split must be greater than " "or equal to 0")
         else:

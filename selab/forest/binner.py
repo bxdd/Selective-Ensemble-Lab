@@ -12,7 +12,7 @@ import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils import check_random_state, check_array
 
-from . import _cutils as _LIB
+from ._libs import _cutils as _LIB
 
 
 X_DTYPE = np.float64
@@ -73,7 +73,6 @@ def _find_binning_thresholds(X, n_bins, bin_subsample=2e5, bin_type="percentile"
         binning_thresholds.append(threshold)
 
     return binning_thresholds
-
 
 class Binner(TransformerMixin, BaseEstimator):
     def __init__(
@@ -142,4 +141,15 @@ class Binner(TransformerMixin, BaseEstimator):
 
         _LIB._map_to_bins(X, self.bin_thresholds_, self.missing_values_bin_idx_, X_binned)
 
+        return X_binned
+
+    def bin_data(self, X, is_training_data=True):
+        """
+        Bin data X. If X is training data, the bin mapper is fitted first.
+        """
+        if is_training_data:
+            X_binned = self.fit_transform(X)
+        else:
+            X_binned = self.transform(X)
+            X_binned = np.ascontiguousarray(X_binned)
         return X_binned

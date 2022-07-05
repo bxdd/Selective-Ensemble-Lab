@@ -35,8 +35,8 @@ from sklearn.utils.fixes import _joblib_parallel_args
 from sklearn.utils.validation import check_is_fitted, _check_sample_weight
 from sklearn.utils.validation import _deprecate_positional_args
 
-from . import _cutils as _LIB
-from . import _forest as _C_FOREST
+from ._libs import _cutils as _LIB
+from ._libs import _forest as _C_FOREST
 
 from .tree import (
     DecisionTreeClassifier,
@@ -44,7 +44,7 @@ from .tree import (
     ExtraTreeClassifier,
     ExtraTreeRegressor,
 )
-from .tree._tree import DOUBLE
+from .tree._libs._tree import DOUBLE
 
 
 MAX_INT = np.iinfo(np.int32).max
