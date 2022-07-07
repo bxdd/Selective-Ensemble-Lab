@@ -34,6 +34,7 @@ REQUIRED = [
     "scipy>=0.19.1",
     "joblib>=0.11",
     "scikit-learn>=0.23,<0.24",
+    "graphviz>=0.20",
 ]
 
 

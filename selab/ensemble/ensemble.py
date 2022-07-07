@@ -4,7 +4,6 @@ import numpy as np
 
 from typing import List, Set, Union
 from abc import ABCMeta, abstractmethod
-from warnings import warn
 
 from sklearn.utils import check_random_state
 from sklearn.base import clone
@@ -54,6 +53,13 @@ class EnsembleSelector:
         self.maskers_ = [True] * self.n_estimators
 
     def reset_estimator_masker(self, enable_estimators: Union[Set[BaseEstimator], List[BaseEstimator]] = None):
+        """_summary_
+
+        Parameters
+        ----------
+        enable_estimators : Union[Set[BaseEstimator], List[BaseEstimator]], optional
+            _description_, by default None
+        """
         if enable_estimators is None:
             self.maskers_ = [True] * self.n_estimators
         else:
@@ -102,7 +108,7 @@ class BaseEnsemble(MetaEstimatorMixin, BaseEstimator, EnsembleSelector, metaclas
         self.n_estimators = n_estimators
         self.estimator_params = estimator_params
 
-        EnsembleSelector.__init__(self)
+        super(BaseEnsemble, self).__init__()
         # Don't instantiate estimators now! Parameters of base_estimator might
         # still change. Eg., when grid-searching with the nested object syntax.
         # self.estimators_ needs to be filled by the derived classes in fit.
