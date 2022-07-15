@@ -64,7 +64,7 @@ from sklearn.utils.validation import check_is_fitted, _check_sample_weight
 from sklearn.utils.validation import _deprecate_positional_args
 
 from .tree._libs._tree import DTYPE, DOUBLE
-from ..ensemble import BaseEnsemble, EnsembleSelector
+from ..ensemble import BaseEnsemble
 
 __all__ = [
     "RandomForestClassifier",
@@ -184,7 +184,7 @@ def _partition_estimators(n_estimators, n_jobs):
     return n_jobs, n_estimators_per_job.tolist(), [0] + starts.tolist()
 
 
-class BaseForest(MultiOutputMixin, BaseEnsemble, EnsembleSelector, metaclass=ABCMeta):
+class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
     """
     Base class for forests of trees.
 
@@ -641,7 +641,6 @@ class ForestClassifier(ClassifierMixin, BaseForest, metaclass=ABCMeta):
             The predicted classes.
         """
         proba = self.predict_proba(X)
-
         if self.n_outputs_ == 1:
             return self.classes_.take(np.argmax(proba, axis=1), axis=0)
 
@@ -684,12 +683,11 @@ class ForestClassifier(ClassifierMixin, BaseForest, metaclass=ABCMeta):
         X = self._validate_X_predict(X)
 
         # Assign chunk of trees to jobs
-        n_jobs, _, _ = _partition_estimators(self.n_estimators, self.n_jobs)
+        masked_estimators_ = self._get_masked_estimators()
+        n_jobs, _, _ = _partition_estimators(len(masked_estimators_), self.n_jobs)
 
         # avoid storing the output of every estimator by summing them here
         all_proba = [np.zeros((X.shape[0], j), dtype=np.float64) for j in np.atleast_1d(self.n_classes_)]
-        masked_estimators_ = self._get_masked_estimators()
-
         lock = threading.Lock()
         Parallel(n_jobs=n_jobs, verbose=self.verbose, **_joblib_parallel_args(require="sharedmem"))(
             delayed(_accumulate_prediction)(e.predict_proba, X, all_proba, lock) for e in masked_estimators_
@@ -736,6 +734,39 @@ class ForestClassifier(ClassifierMixin, BaseForest, metaclass=ABCMeta):
 
             return proba
 
+    def predict_estimators_proba(self, X):
+        check_is_fitted(self)
+        # Check data
+        X = self._validate_X_predict(X)
+
+        # Assign chunk of trees to jobs
+        masked_estimators_ = self._get_masked_estimators()
+        n_jobs, _, _ = _partition_estimators(len(masked_estimators_), self.n_jobs)
+
+        estimators_proba = Parallel(n_jobs=n_jobs, verbose=self.verbose, **_joblib_parallel_args(prefer="threads"))(
+            delayed(e.predict_proba)(X, check_input=False) for e in masked_estimators_
+        )
+        return [_proba[0] if len(_proba) == 1 else _proba for _proba in estimators_proba]
+
+    def predict_estimators(self, X):
+        estimators_proba = self.predict_estimators_proba(X)
+
+        if self.n_outputs_ == 1:
+            return [self.classes_.take(np.argmax(_proba, axis=1), axis=0) for _proba in estimators_proba]
+
+        else:
+            def _cal_each_predictions(proba):
+                n_samples = proba[0].shape[0]
+                # all dtypes should be the same, so just take the first
+                class_type = self.classes_[0].dtype
+                predictions = np.empty((n_samples, self.n_outputs_), dtype=class_type)
+
+                for k in range(self.n_outputs_):
+                    predictions[:, k] = self.classes_[k].take(np.argmax(proba[k], axis=1), axis=0)
+                return predictions
+            
+            return [_cal_each_predictions(_proba) for _proba in estimators_proba]
+            
 
 class ForestRegressor(RegressorMixin, BaseForest, metaclass=ABCMeta):
     """
@@ -797,7 +828,8 @@ class ForestRegressor(RegressorMixin, BaseForest, metaclass=ABCMeta):
         X = self._validate_X_predict(X)
 
         # Assign chunk of trees to jobs
-        n_jobs, _, _ = _partition_estimators(self.n_estimators, self.n_jobs)
+        masked_estimators_ = self._get_masked_estimators()
+        n_jobs, _, _ = _partition_estimators(len(masked_estimators_), self.n_jobs)
 
         # avoid storing the output of every estimator by summing them here
         if self.n_outputs_ > 1:
@@ -805,7 +837,7 @@ class ForestRegressor(RegressorMixin, BaseForest, metaclass=ABCMeta):
         else:
             y_hat = np.zeros((X.shape[0]), dtype=np.float64)
 
-        masked_estimators_ = self._get_masked_estimators()
+        
 
         # Parallel loop
         lock = threading.Lock()
