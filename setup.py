@@ -76,6 +76,14 @@ extensions = [
         libraries=libraries,
         extra_compile_args=["-O3"],
     ),
+    Extension(
+        "selab.metrics.tree_edit._libs.distance",
+        ["selab/metrics/tree_edit/_libs/distance.pyx"],
+        include_dirs=[numpy.get_include()],
+        libraries=libraries,
+        language="c++",
+        extra_compile_args=["-O3"],
+    ),
 ]
 
 if __name__ == "__main__":
